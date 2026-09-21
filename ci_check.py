@@ -35,6 +35,29 @@ def main():
             print(f"{name}: {'성공' if ok else '실패'} ({info})")
         return all(ok for _, ok, _ in results) if results else False
 
+    if "--test" in sys.argv:
+        print("알림 경로 점검 — 실제 빈자리가 아닙니다. state.json 은 건드리지 않습니다.")
+        print(f"  NTFY_TOPIC  : {'설정됨 (' + topic[:11] + '...)' if topic else '★ 비어 있음'}")
+        print(f"  ALERT_EMAIL : {email or '★ 비어 있음'}")
+        print(f"  SMTP_HOST   : {smtp.get('host') or '(미설정)'}")
+        print(f"  NTFY_TOKEN  : {'설정됨' if os.environ.get('NTFY_TOKEN','').strip() else '(미설정)'}")
+        results = slotcheck.alert({slotcheck.TEST_SLOT}, topic=topic, email=email,
+                                  smtp_cfg=smtp, server=server, label=label,
+                                  ntfy_token=os.environ.get("NTFY_TOKEN", "").strip(),
+                                  test=True)
+        if not results:
+            print("::error::보낼 경로가 하나도 없습니다. 시크릿을 확인하세요.")
+            return 1
+        bad = False
+        for name, ok, info in results:
+            print(f"  {name}: {'성공' if ok else '실패'} ({info})")
+            bad = bad or not ok
+        if bad:
+            print("::error::실패한 알림 경로가 있습니다")
+            return 1
+        print("::notice::테스트 알림 발송 완료")
+        return 0
+
     try:
         with open(STATE, encoding="utf-8") as f:
             st = json.load(f)

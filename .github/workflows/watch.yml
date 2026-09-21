@@ -9,8 +9,6 @@ on:
         description: "테스트 알림 보내기 (실제 빈자리 아님)"
         type: boolean
         default: false
-  push:                     # 임시: 알림 경로 점검용. 확인 후 제거합니다.
-    branches: [main]
 
 concurrency:
   group: slot-watch
@@ -30,8 +28,7 @@ jobs:
           python-version: "3.12"
 
       - name: 테스트 알림
-        if: inputs.test || contains(github.event.head_commit.message, '[alert-test]')
-        continue-on-error: true   # 점검 실패가 본 감시를 막지 않게
+        if: inputs.test
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           NTFY_SERVER: ${{ secrets.NTFY_SERVER }}
@@ -43,20 +40,7 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           SMTP_FROM: ${{ secrets.SMTP_FROM }}
-        run: |
-          set +e
-          python -u ci_check.py --test 2>&1 | tee test-result.txt
-          echo "exit_code=${PIPESTATUS[0]}" >> test-result.txt
-
-      - name: 점검 결과 저장소에 기록
-        if: always() && (inputs.test || contains(github.event.head_commit.message, '[alert-test]'))
-        run: |
-          git config user.name  "slot-watch"
-          git config user.email "slot-watch@users.noreply.github.com"
-          git add -f test-result.txt
-          git commit -m "점검 결과 기록" || exit 0
-          git pull --rebase --autostash
-          git push
+        run: python -u ci_check.py --test
 
       - name: 빈자리 확인
         id: check

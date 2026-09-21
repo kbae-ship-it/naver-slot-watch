@@ -1,0 +1,5 @@
+.ntfy_topic
+local_state.json
+slot_watch.log
+watcher.out
+__pycache__/

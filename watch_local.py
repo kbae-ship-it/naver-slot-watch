@@ -33,6 +33,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 STATE_FILE = os.path.join(HERE, "local_state.json")
 LOG_FILE = os.path.join(HERE, "slot_watch.log")
 TOPIC_FILE = os.path.join(HERE, ".ntfy_topic")
+EMAIL_FILE = os.path.join(HERE, ".alert_email")
 
 
 def ntfy_topic():
@@ -41,6 +42,17 @@ def ntfy_topic():
         return t
     try:
         with open(TOPIC_FILE, encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
+def alert_email():
+    e = os.environ.get("ALERT_EMAIL", "").strip()
+    if e:
+        return e
+    try:
+        with open(EMAIL_FILE, encoding="utf-8") as f:
             return f.read().strip()
     except OSError:
         return ""
@@ -88,8 +100,13 @@ def notify(new_slots, auto_open=True):
         except Exception:
             pass
 
-    ok, info = slotcheck.ntfy_push(ntfy_topic(), slots, label=LABEL)
-    log(f"  휴대폰 푸시: {'성공' if ok else '실패'} ({info})")
+    for name, ok, info in slotcheck.alert(
+            slots,
+            topic=ntfy_topic(),
+            email=alert_email(),
+            smtp_cfg=slotcheck.smtp_config_from_env(os.environ),
+            label=LABEL):
+        log(f"  {name}: {'성공' if ok else '실패'} ({info})")
 
     log(f"*** 빈자리: {', '.join(slots)}")
     log(f"    예약: {slotcheck.booking_url(day)}")
@@ -130,7 +147,11 @@ def main():
 
     topic = ntfy_topic()
     log(f"감시 시작 — 빠른확인 {FAST_INTERVAL}초 / 전체스윕 {FULL_SWEEP_INTERVAL}초")
-    log(f"휴대폰 푸시: {'토픽 설정됨' if topic else '미설정 (맥 알림만 동작)'}")
+    mail = alert_email()
+    smtp = slotcheck.smtp_config_from_env(os.environ)
+    log(f"휴대폰 푸시: {'토픽 설정됨' if topic else '미설정'}"
+        f" / 이메일: {mail or '미설정'}"
+        f"{' (SMTP 직접발송)' if smtp.get('host') else ' (ntfy 경유)' if mail else ''}")
 
     daily = slotcheck.fetch_daily()
     days = slotcheck.sale_days(daily)

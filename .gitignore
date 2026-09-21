@@ -3,3 +3,4 @@ local_state.json
 slot_watch.log
 watcher.out
 __pycache__/
+.alert_email

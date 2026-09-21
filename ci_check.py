@@ -3,8 +3,10 @@
 
 환경변수:
   NTFY_TOPIC   (필수) ntfy 토픽 이름
+  ALERT_EMAIL  (선택) 알림 받을 이메일 주소
   NTFY_SERVER  (선택) 기본 https://ntfy.sh
   ALERT_LABEL  (선택) 알림 제목에 들어갈 이름. 기본 "예약"
+  SMTP_HOST/PORT/USER/PASS/FROM (선택) 설정하면 ntfy 대신 SMTP로 직접 발송
 """
 
 import json
@@ -20,7 +22,16 @@ STATE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "state.json")
 def main():
     topic = os.environ.get("NTFY_TOPIC", "").strip()
     server = os.environ.get("NTFY_SERVER", "https://ntfy.sh").strip()
-    label = os.environ.get("ALERT_LABEL", "예약").strip()
+    label = os.environ.get("ALERT_LABEL", "예약").strip() or "예약"
+    email = os.environ.get("ALERT_EMAIL", "").strip()
+    smtp = slotcheck.smtp_config_from_env(os.environ)
+
+    def fire(slots):
+        results = slotcheck.alert(slots, topic=topic, email=email,
+                                  smtp_cfg=smtp, server=server, label=label)
+        for name, ok, info in results:
+            print(f"{name}: {'성공' if ok else '실패'} ({info})")
+        return all(ok for _, ok, _ in results) if results else False
 
     try:
         with open(STATE, encoding="utf-8") as f:
@@ -49,14 +60,12 @@ def main():
     if first_run:
         print("첫 실행 — 기준선을 저장합니다.")
         if current:
-            ok, info = slotcheck.ntfy_push(topic, current, server, label)
-            print(f"푸시(첫 실행 시점에 이미 빈자리 있음): {ok} {info}")
+            print("첫 실행 시점에 이미 빈자리가 있습니다.")
+            fire(current)
     elif gained:
-        ok, info = slotcheck.ntfy_push(topic, gained, server, label)
         print(f"::notice::빈자리 {len(gained)}개 — {', '.join(sorted(gained))}")
-        print(f"푸시: {ok} {info}")
-        if not ok:
-            print("::error::ntfy 푸시 실패")
+        if not fire(gained):
+            print("::error::알림 발송에 실패한 경로가 있습니다")
     else:
         print("새 빈자리 없음.")
 

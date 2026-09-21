@@ -3,7 +3,7 @@
 자연튼튼의원 · 편평사마귀 제거 · 편사1시간30분여유(최소15만원)
 `businessId=597072`, `bizItemId=6568346`
 
-취소로 자리가 나면 휴대폰으로 즉시 푸시. 알림을 누르면 해당 날짜 예약 페이지가 열립니다.
+취소로 자리가 나면 **휴대폰 푸시 + 이메일**. 푸시를 누르면 해당 날짜 예약 페이지가 열립니다.
 
 ## 2중 감시
 
@@ -25,7 +25,37 @@ App Store / Play 스토어에서 **ntfy** 설치 → `+` → 토픽 이름 입�
 > 구독할 수 있는 공개 서비스라, 추측 불가능한 무작위 이름을 써야 합니다.
 > 알림 본문에는 병원명이나 시술명을 넣지 않고 날짜·시간만 보냅니다.
 
-### 2. GitHub Actions
+### 2. 이메일
+
+기본은 ntfy가 대신 보내주는 방식이라 따로 설정할 게 없습니다. 주소만 정하면 됩니다.
+
+```bash
+echo 'you@example.com' > .alert_email
+```
+
+> ntfy.sh 무료 서버는 이메일 발송량에 하루 제한이 있습니다(문서에 정확한 수치가
+> 공개돼 있지 않습니다). 제한에 걸리거나 더 확실하게 받고 싶으면 아래 SMTP 직접
+> 발송으로 바꾸세요. `SMTP_HOST`가 설정되면 ntfy 경유 메일은 자동으로 꺼지고
+> SMTP 쪽만 씁니다.
+
+<details>
+<summary>SMTP 직접 발송으로 바꾸기 (선택)</summary>
+
+환경변수 또는 GitHub Secret으로 설정합니다. Gmail이면 2단계 인증을 켜고
+**앱 비밀번호**를 발급해서 쓰세요. 일반 계정 비밀번호로는 로그인되지 않습니다.
+
+| 이름 | 예시 |
+|---|---|
+| `SMTP_HOST` | `smtp.gmail.com` |
+| `SMTP_PORT` | `587` (또는 SSL이면 `465`) |
+| `SMTP_USER` | 보내는 계정 |
+| `SMTP_PASS` | 앱 비밀번호 |
+| `SMTP_FROM` | 생략하면 `SMTP_USER` |
+| `ALERT_EMAIL` | 받는 주소 |
+
+</details>
+
+### 3. GitHub Actions
 
 ```bash
 git init && git add -A && git commit -m "초기 설정"
@@ -36,15 +66,18 @@ git branch -M main && git push -u origin main
 
 저장소 → Settings → Secrets and variables → Actions:
 
-- **New repository secret** → 이름 `NTFY_TOPIC`, 값에 토픽 이름
+- **New repository secret** → `NTFY_TOPIC` — 토픽 이름
+- **New repository secret** → `ALERT_EMAIL` — 알림 받을 이메일 주소
 - (선택) **Variables** 탭 → `ALERT_LABEL` — 알림 제목에 쓸 이름. 기본 `예약`
+- (선택) SMTP 직접 발송을 쓸 경우 `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM`
 
 Actions 탭 → `빈자리 감시` → **Run workflow** 로 한 번 수동 실행해서 확인.
 
-### 3. 맥 감시기
+### 4. 맥 감시기
 
 ```bash
 echo '<토픽 이름>' > .ntfy_topic
+echo '<이메일 주소>' > .alert_email
 nohup python3 watch_local.py > watcher.out 2>&1 &
 ```
 
@@ -81,3 +114,5 @@ tail -f slot_watch.log            # 로그 보기
 - 조회에 실패한 날짜는 이전 상태를 그대로 유지합니다. 일시적 오류로 거짓 알림이
   가지 않게 하려는 것입니다.
 - 감시 범위는 오늘부터 192일입니다. 새 예약 기간이 열리면 자동으로 들어옵니다.
+- 알림 본문에는 병원명·시술명을 넣지 않고 날짜·시간과 예약 링크만 보냅니다.
+  ntfy.sh 토픽은 이름만 알면 누구나 구독할 수 있는 공개 경로이기 때문입니다.

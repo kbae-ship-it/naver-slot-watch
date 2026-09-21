@@ -136,7 +136,7 @@ def scan_all():
 
 
 # ── ntfy 푸시 ────────────────────────────────────────────────────────────────
-def ntfy_push(topic, slots, server="https://ntfy.sh", label="예약"):
+def ntfy_push(topic, slots, server="https://ntfy.sh", label="예약", email=None):
     """휴대폰 푸시. 알림을 누르면 해당 날짜 예약 페이지가 열린다."""
     if not topic:
         return False, "topic 없음"
@@ -152,6 +152,8 @@ def ntfy_push(topic, slots, server="https://ntfy.sh", label="예약"):
         "tags": ["rotating_light"],
         "click": booking_url(day),
     }
+    if email:
+        payload["email"] = email
     req = urllib.request.Request(
         server.rstrip("/") + "/",
         data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
@@ -162,3 +164,89 @@ def ntfy_push(topic, slots, server="https://ntfy.sh", label="예약"):
             return (200 <= r.status < 300), f"HTTP {r.status}"
     except Exception as e:
         return False, str(e)
+
+
+# ── 이메일 ───────────────────────────────────────────────────────────────────
+def compose(slots, label="예약"):
+    """알림 제목과 본문. 병원명·시술명은 넣지 않는다 (공개 경로를 지나므로)."""
+    slots = sorted(slots)
+    day = slots[0].split(" ")[0]
+    subject = f"[{label}] 빈자리 {len(slots)}건 — {slots[0]}"
+    lines = ["예약 빈자리가 생겼습니다.", ""]
+    lines += [f"  · {s}" for s in slots]
+    lines += ["", f"예약: {booking_url(day)}"]
+    if len({s.split(" ")[0] for s in slots}) > 1:
+        lines += ["", "날짜별 링크:"]
+        lines += [f"  {d}: {booking_url(d)}" for d in sorted({s.split(" ")[0] for s in slots})]
+    return subject, "\n".join(lines)
+
+
+def send_smtp(slots, cfg, label="예약"):
+    """SMTP 직접 발송. cfg = dict(host, port, user, password, sender, to).
+
+    ntfy 무료 티어의 이메일 발송 제한에 걸릴 때를 대비한 경로.
+    """
+    import smtplib
+    import ssl
+    from email.message import EmailMessage
+
+    need = ("host", "user", "password", "to")
+    missing = [k for k in need if not cfg.get(k)]
+    if missing:
+        return False, f"설정 없음: {', '.join(missing)}"
+
+    subject, body = compose(slots, label)
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = cfg.get("sender") or cfg["user"]
+    msg["To"] = cfg["to"]
+    msg.set_content(body)
+
+    port = int(cfg.get("port") or 587)
+    try:
+        if port == 465:
+            with smtplib.SMTP_SSL(cfg["host"], port, context=ssl.create_default_context(),
+                                  timeout=20) as sm:
+                sm.login(cfg["user"], cfg["password"])
+                sm.send_message(msg)
+        else:
+            with smtplib.SMTP(cfg["host"], port, timeout=20) as sm:
+                sm.starttls(context=ssl.create_default_context())
+                sm.login(cfg["user"], cfg["password"])
+                sm.send_message(msg)
+        return True, f"{cfg['to']} 로 발송"
+    except Exception as e:
+        return False, str(e)
+
+
+def smtp_config_from_env(env):
+    return {
+        "host": env.get("SMTP_HOST", "").strip(),
+        "port": env.get("SMTP_PORT", "").strip(),
+        "user": env.get("SMTP_USER", "").strip(),
+        "password": env.get("SMTP_PASS", "").strip(),
+        "sender": env.get("SMTP_FROM", "").strip(),
+        "to": env.get("ALERT_EMAIL", "").strip(),
+    }
+
+
+def alert(slots, topic="", email="", smtp_cfg=None, server="https://ntfy.sh", label="예약"):
+    """푸시 + 이메일을 한 번에. SMTP가 설정돼 있으면 그쪽으로, 아니면 ntfy 경유.
+
+    반환: [(경로이름, 성공여부, 메시지), ...]
+    """
+    results = []
+    use_smtp = bool(smtp_cfg and smtp_cfg.get("host") and smtp_cfg.get("to"))
+
+    if topic:
+        ok, info = ntfy_push(topic, slots, server, label,
+                             email=None if use_smtp else (email or None))
+        results.append(("ntfy 푸시" + ("" if use_smtp else "+메일"), ok, info))
+
+    if use_smtp:
+        ok, info = send_smtp(slots, smtp_cfg, label)
+        results.append(("SMTP 메일", ok, info))
+    elif email and not topic:
+        results.append(("메일", False, "ntfy 토픽이 없어 메일을 보낼 경로가 없습니다"))
+
+    return results

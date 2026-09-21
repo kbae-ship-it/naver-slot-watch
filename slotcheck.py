@@ -136,8 +136,14 @@ def scan_all():
 
 
 # ── ntfy 푸시 ────────────────────────────────────────────────────────────────
-def ntfy_push(topic, slots, server="https://ntfy.sh", label="예약", email=None):
-    """휴대폰 푸시. 알림을 누르면 해당 날짜 예약 페이지가 열린다."""
+def ntfy_push(topic, slots, server="https://ntfy.sh", label="예약",
+              email=None, token=None):
+    """휴대폰 푸시. 알림을 누르면 해당 날짜 예약 페이지가 열린다.
+
+    email 은 ntfy 계정 토큰이 있을 때만 싣는다. ntfy.sh 는 익명 이메일 발송을
+    거부하며(40053), 그 경우 요청 전체가 400으로 실패해 푸시까지 날아간다.
+    푸시는 어떤 경우에도 살아남아야 하므로 토큰이 없으면 email 을 뺀다.
+    """
     if not topic:
         return False, "topic 없음"
     slots = sorted(slots)
@@ -152,12 +158,15 @@ def ntfy_push(topic, slots, server="https://ntfy.sh", label="예약", email=None
         "tags": ["rotating_light"],
         "click": booking_url(day),
     }
-    if email:
+    headers = {"Content-Type": "application/json; charset=utf-8"}
+    if email and token:
         payload["email"] = email
+        headers["Authorization"] = f"Bearer {token}"
+
     req = urllib.request.Request(
         server.rstrip("/") + "/",
         data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-        headers={"Content-Type": "application/json; charset=utf-8"},
+        headers=headers,
     )
     try:
         with urllib.request.urlopen(req, timeout=15) as r:
@@ -230,23 +239,31 @@ def smtp_config_from_env(env):
     }
 
 
-def alert(slots, topic="", email="", smtp_cfg=None, server="https://ntfy.sh", label="예약"):
-    """푸시 + 이메일을 한 번에. SMTP가 설정돼 있으면 그쪽으로, 아니면 ntfy 경유.
+def alert(slots, topic="", email="", smtp_cfg=None, server="https://ntfy.sh",
+          label="예약", ntfy_token=""):
+    """푸시와 이메일을 각각 독립적으로 보낸다. 한쪽이 실패해도 다른 쪽은 간다.
 
+    이메일 경로 우선순위:
+      1) SMTP 설정이 있으면 SMTP 직접 발송
+      2) 없고 ntfy 토큰이 있으면 ntfy 경유
+      3) 둘 다 없으면 이메일은 보내지 못한다고 명시적으로 보고
     반환: [(경로이름, 성공여부, 메시지), ...]
     """
     results = []
-    use_smtp = bool(smtp_cfg and smtp_cfg.get("host") and smtp_cfg.get("to"))
+    smtp_cfg = smtp_cfg or {}
+    use_smtp = bool(smtp_cfg.get("host") and smtp_cfg.get("to"))
+    use_ntfy_mail = bool(email and ntfy_token and not use_smtp)
 
     if topic:
         ok, info = ntfy_push(topic, slots, server, label,
-                             email=None if use_smtp else (email or None))
-        results.append(("ntfy 푸시" + ("" if use_smtp else "+메일"), ok, info))
+                             email=email if use_ntfy_mail else None,
+                             token=ntfy_token if use_ntfy_mail else None)
+        results.append(("ntfy 푸시" + ("+메일" if use_ntfy_mail else ""), ok, info))
 
     if use_smtp:
-        ok, info = send_smtp(slots, smtp_cfg, label)
-        results.append(("SMTP 메일", ok, info))
-    elif email and not topic:
-        results.append(("메일", False, "ntfy 토픽이 없어 메일을 보낼 경로가 없습니다"))
+        results.append(("SMTP 메일",) + send_smtp(slots, smtp_cfg, label))
+    elif email and not use_ntfy_mail:
+        results.append(("이메일", False,
+                        "경로 미설정 — SMTP_HOST 를 설정하거나 NTFY_TOKEN 이 필요합니다"))
 
     return results

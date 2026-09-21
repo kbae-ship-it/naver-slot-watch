@@ -27,33 +27,37 @@ App Store / Play 스토어에서 **ntfy** 설치 → `+` → 토픽 이름 입�
 
 ### 2. 이메일
 
-기본은 ntfy가 대신 보내주는 방식이라 따로 설정할 게 없습니다. 주소만 정하면 됩니다.
+받을 주소를 정합니다.
 
 ```bash
 echo 'you@example.com' > .alert_email
 ```
 
-> ntfy.sh 무료 서버는 이메일 발송량에 하루 제한이 있습니다(문서에 정확한 수치가
-> 공개돼 있지 않습니다). 제한에 걸리거나 더 확실하게 받고 싶으면 아래 SMTP 직접
-> 발송으로 바꾸세요. `SMTP_HOST`가 설정되면 ntfy 경유 메일은 자동으로 꺼지고
-> SMTP 쪽만 씁니다.
+그리고 **발송 경로**가 하나 필요합니다. ntfy.sh는 2024년부터 익명 이메일 발송을
+막았기 때문에(`40053 anonymous email sending is not allowed`), 둘 중 하나를
+설정해야 메일이 나갑니다.
 
-<details>
-<summary>SMTP 직접 발송으로 바꾸기 (선택)</summary>
+**방법 A — SMTP 직접 발송 (권장)**
 
-환경변수 또는 GitHub Secret으로 설정합니다. Gmail이면 2단계 인증을 켜고
-**앱 비밀번호**를 발급해서 쓰세요. 일반 계정 비밀번호로는 로그인되지 않습니다.
+`.env.local.example` 을 `.env.local` 로 복사하고 값을 채웁니다.
+Gmail이면 2단계 인증을 켜고 [앱 비밀번호](https://myaccount.google.com/apppasswords)를
+발급해서 쓰세요. 일반 계정 비밀번호로는 로그인되지 않습니다.
 
 | 이름 | 예시 |
 |---|---|
 | `SMTP_HOST` | `smtp.gmail.com` |
-| `SMTP_PORT` | `587` (또는 SSL이면 `465`) |
+| `SMTP_PORT` | `587` (SSL이면 `465`) |
 | `SMTP_USER` | 보내는 계정 |
 | `SMTP_PASS` | 앱 비밀번호 |
 | `SMTP_FROM` | 생략하면 `SMTP_USER` |
-| `ALERT_EMAIL` | 받는 주소 |
 
-</details>
+**방법 B — ntfy 계정 경유**
+
+ntfy.sh에 가입해 토큰(`tk_...`)을 발급받아 `.ntfy_token` 에 넣거나
+`NTFY_TOKEN` 으로 설정합니다. 발송량 제한이 있습니다.
+
+> `SMTP_HOST`가 설정되면 ntfy 경유 메일은 자동으로 꺼지고 SMTP만 씁니다.
+> 둘 다 없으면 메일은 나가지 않지만 **푸시는 정상 동작합니다.**
 
 ### 3. GitHub Actions
 
@@ -68,6 +72,7 @@ git branch -M main && git push -u origin main
 
 - **New repository secret** → `NTFY_TOPIC` — 토픽 이름
 - **New repository secret** → `ALERT_EMAIL` — 알림 받을 이메일 주소
+- 메일 발송 경로: `SMTP_*` 전부, 또는 `NTFY_TOKEN`
 - (선택) **Variables** 탭 → `ALERT_LABEL` — 알림 제목에 쓸 이름. 기본 `예약`
 - (선택) SMTP 직접 발송을 쓸 경우 `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM`
 
@@ -78,8 +83,11 @@ Actions 탭 → `빈자리 감시` → **Run workflow** 로 한 번 수동 실�
 ```bash
 echo '<토픽 이름>' > .ntfy_topic
 echo '<이메일 주소>' > .alert_email
+cp .env.local.example .env.local   # 메일 발송 경로를 쓸 경우
 nohup python3 watch_local.py > watcher.out 2>&1 &
 ```
+
+시작 로그에 이메일 경로가 표시됩니다. `발송 경로 없음!` 이 보이면 메일은 안 갑니다.
 
 ## 명령
 
@@ -116,3 +124,7 @@ tail -f slot_watch.log            # 로그 보기
 - 감시 범위는 오늘부터 192일입니다. 새 예약 기간이 열리면 자동으로 들어옵니다.
 - 알림 본문에는 병원명·시술명을 넣지 않고 날짜·시간과 예약 링크만 보냅니다.
   ntfy.sh 토픽은 이름만 알면 누구나 구독할 수 있는 공개 경로이기 때문입니다.
+- 푸시와 이메일은 서로 독립적으로 발송합니다. 메일 설정이 잘못돼 있어도
+  푸시는 정상적으로 갑니다.
+- `.ntfy_topic` `.alert_email` `.ntfy_token` `.env.local` 은 모두 `.gitignore`
+  대상이라 저장소에 올라가지 않습니다.

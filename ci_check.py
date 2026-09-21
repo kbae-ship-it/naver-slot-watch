@@ -6,6 +6,7 @@
   ALERT_EMAIL  (선택) 알림 받을 이메일 주소
   NTFY_SERVER  (선택) 기본 https://ntfy.sh
   ALERT_LABEL  (선택) 알림 제목에 들어갈 이름. 기본 "예약"
+  NTFY_TOKEN   (선택) ntfy 계정 토큰. 있어야 ntfy 경유 메일이 나갑니다
   SMTP_HOST/PORT/USER/PASS/FROM (선택) 설정하면 ntfy 대신 SMTP로 직접 발송
 """
 
@@ -28,7 +29,8 @@ def main():
 
     def fire(slots):
         results = slotcheck.alert(slots, topic=topic, email=email,
-                                  smtp_cfg=smtp, server=server, label=label)
+                                  smtp_cfg=smtp, server=server, label=label,
+                                  ntfy_token=os.environ.get("NTFY_TOKEN", "").strip())
         for name, ok, info in results:
             print(f"{name}: {'성공' if ok else '실패'} ({info})")
         return all(ok for _, ok, _ in results) if results else False

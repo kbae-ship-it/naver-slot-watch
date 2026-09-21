@@ -4,3 +4,5 @@ slot_watch.log
 watcher.out
 __pycache__/
 .alert_email
+.ntfy_token
+.env.local

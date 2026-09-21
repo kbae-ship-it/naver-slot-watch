@@ -29,6 +29,7 @@ jobs:
           NTFY_SERVER: ${{ secrets.NTFY_SERVER }}
           ALERT_LABEL: ${{ vars.ALERT_LABEL }}
           ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+          NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
           # 아래 SMTP_* 는 선택. 설정하면 ntfy 대신 메일을 직접 보냅니다.
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}

@@ -34,6 +34,32 @@ STATE_FILE = os.path.join(HERE, "local_state.json")
 LOG_FILE = os.path.join(HERE, "slot_watch.log")
 TOPIC_FILE = os.path.join(HERE, ".ntfy_topic")
 EMAIL_FILE = os.path.join(HERE, ".alert_email")
+TOKEN_FILE = os.path.join(HERE, ".ntfy_token")
+ENV_FILE = os.path.join(HERE, ".env.local")
+
+
+def load_env_file():
+    """.env.local 의 KEY=VALUE 를 환경변수로 읽어들인다.
+
+    nohup 으로 띄운 프로세스는 셸에서 export 한 값을 물려받지 못하므로
+    SMTP 설정 같은 건 파일에서 읽어야 한다. 이미 설정된 환경변수가 우선.
+    """
+    try:
+        with open(ENV_FILE, encoding="utf-8") as f:
+            lines = f.readlines()
+    except OSError:
+        return
+    for raw in lines:
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        k, v = k.strip(), v.strip().strip('"').strip("'")
+        if k and k not in os.environ:
+            os.environ[k] = v
+
+
+load_env_file()
 
 
 def ntfy_topic():
@@ -45,6 +71,21 @@ def ntfy_topic():
             return f.read().strip()
     except OSError:
         return ""
+
+
+def _read(path, env_key):
+    v = os.environ.get(env_key, "").strip()
+    if v:
+        return v
+    try:
+        with open(path, encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
+def ntfy_token():
+    return _read(TOKEN_FILE, "NTFY_TOKEN")
 
 
 def alert_email():
@@ -104,8 +145,10 @@ def notify(new_slots, auto_open=True):
             slots,
             topic=ntfy_topic(),
             email=alert_email(),
-            smtp_cfg=slotcheck.smtp_config_from_env(os.environ),
-            label=LABEL):
+            smtp_cfg=slotcheck.smtp_config_from_env(
+                dict(os.environ, ALERT_EMAIL=alert_email())),
+            label=LABEL,
+            ntfy_token=ntfy_token()):
         log(f"  {name}: {'성공' if ok else '실패'} ({info})")
 
     log(f"*** 빈자리: {', '.join(slots)}")
@@ -149,9 +192,16 @@ def main():
     log(f"감시 시작 — 빠른확인 {FAST_INTERVAL}초 / 전체스윕 {FULL_SWEEP_INTERVAL}초")
     mail = alert_email()
     smtp = slotcheck.smtp_config_from_env(os.environ)
-    log(f"휴대폰 푸시: {'토픽 설정됨' if topic else '미설정'}"
-        f" / 이메일: {mail or '미설정'}"
-        f"{' (SMTP 직접발송)' if smtp.get('host') else ' (ntfy 경유)' if mail else ''}")
+    if not mail:
+        route = "미설정"
+    elif smtp.get("host"):
+        route = f"{mail} (SMTP 직접발송)"
+    elif ntfy_token():
+        route = f"{mail} (ntfy 경유)"
+        
+    else:
+        route = f"{mail} — 발송 경로 없음! SMTP_HOST 또는 NTFY_TOKEN 필요"
+    log(f"휴대폰 푸시: {'토픽 설정됨' if topic else '미설정'} / 이메일: {route}")
 
     daily = slotcheck.fetch_daily()
     days = slotcheck.sale_days(daily)

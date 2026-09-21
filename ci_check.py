@@ -35,8 +35,27 @@ def main():
             print(f"{name}: {'성공' if ok else '실패'} ({info})")
         return all(ok for _, ok, _ in results) if results else False
 
+    def summary(line):
+        """실행 요약에 기록. 로그를 못 보는 상황에서도 API로 읽을 수 있다."""
+        p = os.environ.get("GITHUB_STEP_SUMMARY")
+        if p:
+            try:
+                with open(p, "a", encoding="utf-8") as f:
+                    f.write(line + "\n")
+            except OSError:
+                pass
+
     if "--test" in sys.argv:
         print("알림 경로 점검 — 실제 빈자리가 아닙니다. state.json 은 건드리지 않습니다.")
+        summary("### 알림 경로 점검")
+        summary("")
+        summary("| 설정 | 값 |")
+        summary("|---|---|")
+        summary(f"| NTFY_TOPIC | {'설정됨 `' + topic[:11] + '...`' if topic else '**비어 있음**'} |")
+        summary(f"| ALERT_EMAIL | {email or '**비어 있음**'} |")
+        summary(f"| SMTP_HOST | {smtp.get('host') or '미설정'} |")
+        summary(f"| NTFY_TOKEN | {'설정됨' if os.environ.get('NTFY_TOKEN','').strip() else '미설정'} |")
+        summary("")
         print(f"  NTFY_TOPIC  : {'설정됨 (' + topic[:11] + '...)' if topic else '★ 비어 있음'}")
         print(f"  ALERT_EMAIL : {email or '★ 비어 있음'}")
         print(f"  SMTP_HOST   : {smtp.get('host') or '(미설정)'}")
@@ -47,26 +66,33 @@ def main():
                                   test=True)
         if not results:
             print("::error::보낼 경로가 하나도 없습니다. 시크릿을 확인하세요.")
+            summary("결과: **보낼 경로 없음** — NTFY_TOPIC 시크릿이 등록되지 않았습니다.")
             return 1
         bad, sent = [], []
         for name, ok, info in results:
             if ok:
                 sent.append(name)
                 print(f"  ✓ {name}: 성공 ({info})")
+                summary(f"- ✅ {name}: 성공 ({info})")
             elif "미설정" in name:
                 # 설정을 안 한 경로는 경고. 테스트를 실패로 만들지 않는다.
                 print(f"  – {name}: 건너뜀 ({info})")
                 print(f"::warning::{name} — {info}")
+                summary(f"- ⏭️ {name}: 건너뜀 ({info})")
             else:
                 bad.append(name)
                 print(f"  ✗ {name}: 실패 ({info})")
+                summary(f"- ❌ {name}: 실패 ({info})")
         if bad:
             print(f"::error::알림 발송 실패: {', '.join(bad)}")
+            summary(f"\n결과: **실패** — {', '.join(bad)}")
             return 1
         if not sent:
             print("::error::실제로 발송된 경로가 하나도 없습니다. NTFY_TOPIC 시크릿을 확인하세요.")
+            summary("\n결과: **발송 0건** — NTFY_TOPIC 시크릿을 확인하세요.")
             return 1
         print(f"::notice::테스트 알림 발송 완료 — {', '.join(sent)}")
+        summary(f"\n결과: **발송 완료** — {', '.join(sent)}")
         return 0
 
     try:

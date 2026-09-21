@@ -281,7 +281,8 @@ def alert(slots, topic="", email="", smtp_cfg=None, server="https://ntfy.sh",
     if use_smtp:
         results.append(("SMTP 메일",) + send_smtp(slots, smtp_cfg, label, test))
     elif email and not use_ntfy_mail:
-        results.append(("이메일", False,
-                        "경로 미설정 — SMTP_HOST 를 설정하거나 NTFY_TOKEN 이 필요합니다"))
+        # 설정을 안 한 것이지 고장난 게 아니다. 호출부가 구분할 수 있게 이름으로 표시한다.
+        results.append(("이메일(미설정)", False,
+                        "SMTP_HOST 를 설정하거나 NTFY_TOKEN 이 필요합니다"))
 
     return results

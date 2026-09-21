@@ -48,14 +48,25 @@ def main():
         if not results:
             print("::error::보낼 경로가 하나도 없습니다. 시크릿을 확인하세요.")
             return 1
-        bad = False
+        bad, sent = [], []
         for name, ok, info in results:
-            print(f"  {name}: {'성공' if ok else '실패'} ({info})")
-            bad = bad or not ok
+            if ok:
+                sent.append(name)
+                print(f"  ✓ {name}: 성공 ({info})")
+            elif "미설정" in name:
+                # 설정을 안 한 경로는 경고. 테스트를 실패로 만들지 않는다.
+                print(f"  – {name}: 건너뜀 ({info})")
+                print(f"::warning::{name} — {info}")
+            else:
+                bad.append(name)
+                print(f"  ✗ {name}: 실패 ({info})")
         if bad:
-            print("::error::실패한 알림 경로가 있습니다")
+            print(f"::error::알림 발송 실패: {', '.join(bad)}")
             return 1
-        print("::notice::테스트 알림 발송 완료")
+        if not sent:
+            print("::error::실제로 발송된 경로가 하나도 없습니다. NTFY_TOPIC 시크릿을 확인하세요.")
+            return 1
+        print(f"::notice::테스트 알림 발송 완료 — {', '.join(sent)}")
         return 0
 
     try:

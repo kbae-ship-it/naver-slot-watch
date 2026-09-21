@@ -112,7 +112,7 @@ def log(msg):
 _last_open = 0.0
 
 
-def notify(new_slots, auto_open=True):
+def notify(new_slots, auto_open=True, test=False):
     global _last_open
     slots = sorted(new_slots)
     head = slots[0]
@@ -123,18 +123,24 @@ def notify(new_slots, auto_open=True):
     def osa(s):
         return s.replace("\\", "\\\\").replace('"', '\\"')
 
+    title = "🧪 테스트 — 실제 빈자리 아님" if test else f"🔔 {LABEL} 빈자리"
+    if test:
+        body = "알림 경로 점검용입니다."
     try:
         subprocess.run(["osascript", "-e",
-                        f'display notification "{osa(body)}" with title "🔔 {osa(LABEL)} 빈자리" '
+                        f'display notification "{osa(body)}" with title "{osa(title)}" '
                         f'sound name "Glass"'], check=False, timeout=10)
     except Exception as e:
         log(f"  ! macOS 알림 실패: {e}")
 
     try:
-        hh, mm = head.split(" ")[1].split(":")
-        md = day.split("-")
-        subprocess.Popen(["say", "-v", "Yuna",
-                          f"빈자리가 났습니다. {int(md[1])}월 {int(md[2])}일 {int(hh)}시 {int(mm)}분."])
+        if test:
+            subprocess.Popen(["say", "-v", "Yuna", "테스트입니다. 실제 빈자리가 아닙니다."])
+        else:
+            hh, mm = head.split(" ")[1].split(":")
+            md = day.split("-")
+            subprocess.Popen(["say", "-v", "Yuna",
+                              f"빈자리가 났습니다. {int(md[1])}월 {int(md[2])}일 {int(hh)}시 {int(mm)}분."])
     except Exception:
         try:
             subprocess.Popen(["say", "빈자리가 났습니다"])
@@ -148,9 +154,13 @@ def notify(new_slots, auto_open=True):
             smtp_cfg=slotcheck.smtp_config_from_env(
                 dict(os.environ, ALERT_EMAIL=alert_email())),
             label=LABEL,
-            ntfy_token=ntfy_token()):
+            ntfy_token=ntfy_token(),
+            test=test):
         log(f"  {name}: {'성공' if ok else '실패'} ({info})")
 
+    if test:
+        log("*** 테스트 알림 발송 완료 (실제 빈자리 아님)")
+        return
     log(f"*** 빈자리: {', '.join(slots)}")
     log(f"    예약: {slotcheck.booking_url(day)}")
 
@@ -185,7 +195,7 @@ def main():
 
     if "--test" in args:
         log("알림 경로 점검 — 실제 빈자리가 아닙니다.")
-        notify({"2026-10-31 14:30"}, auto_open=False)
+        notify({slotcheck.TEST_SLOT}, auto_open=False, test=True)
         return
 
     topic = ntfy_topic()

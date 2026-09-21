@@ -136,8 +136,11 @@ def scan_all():
 
 
 # ── ntfy 푸시 ────────────────────────────────────────────────────────────────
+TEST_SLOT = "9999-12-31 00:00"   # 테스트 전용. 실제 달력에 존재할 수 없는 값.
+
+
 def ntfy_push(topic, slots, server="https://ntfy.sh", label="예약",
-              email=None, token=None):
+              email=None, token=None, test=False):
     """휴대폰 푸시. 알림을 누르면 해당 날짜 예약 페이지가 열린다.
 
     email 은 ntfy 계정 토큰이 있을 때만 싣는다. ntfy.sh 는 익명 이메일 발송을
@@ -150,14 +153,23 @@ def ntfy_push(topic, slots, server="https://ntfy.sh", label="예약",
     head = slots[0]
     day = head.split(" ")[0]
     extra = f"\n외 {len(slots) - 1}건: " + ", ".join(slots[1:6]) if len(slots) > 1 else ""
-    payload = {
-        "topic": topic,
-        "title": f"🔔 {label} 빈자리",
-        "message": f"{head}{extra}",
-        "priority": 5,
-        "tags": ["rotating_light"],
-        "click": booking_url(day),
-    }
+    if test:
+        payload = {
+            "topic": topic,
+            "title": "🧪 테스트 — 실제 빈자리 아님",
+            "message": "알림 경로 점검용입니다. 예약 페이지에 가실 필요 없습니다.",
+            "priority": 3,
+            "tags": ["test_tube"],
+        }
+    else:
+        payload = {
+            "topic": topic,
+            "title": f"🔔 {label} 빈자리",
+            "message": f"{head}{extra}",
+            "priority": 5,
+            "tags": ["rotating_light"],
+            "click": booking_url(day),
+        }
     headers = {"Content-Type": "application/json; charset=utf-8"}
     if email and token:
         payload["email"] = email
@@ -176,10 +188,14 @@ def ntfy_push(topic, slots, server="https://ntfy.sh", label="예약",
 
 
 # ── 이메일 ───────────────────────────────────────────────────────────────────
-def compose(slots, label="예약"):
+def compose(slots, label="예약", test=False):
     """알림 제목과 본문. 병원명·시술명은 넣지 않는다 (공개 경로를 지나므로)."""
     slots = sorted(slots)
     day = slots[0].split(" ")[0]
+    if test:
+        return ("[테스트] 알림 경로 점검 — 실제 빈자리 아님",
+                "알림이 정상 동작하는지 확인하는 메일입니다.\n"
+                "실제 빈자리가 아니니 예약 페이지에 가실 필요 없습니다.")
     subject = f"[{label}] 빈자리 {len(slots)}건 — {slots[0]}"
     lines = ["예약 빈자리가 생겼습니다.", ""]
     lines += [f"  · {s}" for s in slots]
@@ -190,7 +206,7 @@ def compose(slots, label="예약"):
     return subject, "\n".join(lines)
 
 
-def send_smtp(slots, cfg, label="예약"):
+def send_smtp(slots, cfg, label="예약", test=False):
     """SMTP 직접 발송. cfg = dict(host, port, user, password, sender, to).
 
     ntfy 무료 티어의 이메일 발송 제한에 걸릴 때를 대비한 경로.
@@ -204,7 +220,7 @@ def send_smtp(slots, cfg, label="예약"):
     if missing:
         return False, f"설정 없음: {', '.join(missing)}"
 
-    subject, body = compose(slots, label)
+    subject, body = compose(slots, label, test)
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = cfg.get("sender") or cfg["user"]
@@ -240,7 +256,7 @@ def smtp_config_from_env(env):
 
 
 def alert(slots, topic="", email="", smtp_cfg=None, server="https://ntfy.sh",
-          label="예약", ntfy_token=""):
+          label="예약", ntfy_token="", test=False):
     """푸시와 이메일을 각각 독립적으로 보낸다. 한쪽이 실패해도 다른 쪽은 간다.
 
     이메일 경로 우선순위:
@@ -257,11 +273,12 @@ def alert(slots, topic="", email="", smtp_cfg=None, server="https://ntfy.sh",
     if topic:
         ok, info = ntfy_push(topic, slots, server, label,
                              email=email if use_ntfy_mail else None,
-                             token=ntfy_token if use_ntfy_mail else None)
+                             token=ntfy_token if use_ntfy_mail else None,
+                             test=test)
         results.append(("ntfy 푸시" + ("+메일" if use_ntfy_mail else ""), ok, info))
 
     if use_smtp:
-        results.append(("SMTP 메일",) + send_smtp(slots, smtp_cfg, label))
+        results.append(("SMTP 메일",) + send_smtp(slots, smtp_cfg, label, test))
     elif email and not use_ntfy_mail:
         results.append(("이메일", False,
                         "경로 미설정 — SMTP_HOST 를 설정하거나 NTFY_TOKEN 이 필요합니다"))

@@ -3,25 +3,8 @@
   ALERT_EMAIL : qu***@gmail.com
   SMTP_HOST   : (미설정)
   NTFY_TOKEN  : (미설정)
-Traceback (most recent call last):
-  File "/home/runner/work/naver-slot-watch/naver-slot-watch/ci_check.py", line 172, in <module>
-    sys.exit(main())
-             ^^^^^^
-  File "/home/runner/work/naver-slot-watch/naver-slot-watch/ci_check.py", line 73, in main
-    results = slotcheck.alert({slotcheck.TEST_SLOT}, topic=topic, email=email,
-              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/work/naver-slot-watch/naver-slot-watch/slotcheck.py", line 275, in alert
-    ok, info = ntfy_push(topic, slots, server, label,
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/work/naver-slot-watch/naver-slot-watch/slotcheck.py", line 179, in ntfy_push
-    req = urllib.request.Request(
-          ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.12.14/x64/lib/python3.12/urllib/request.py", line 318, in __init__
-    self.full_url = url
-    ^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.12.14/x64/lib/python3.12/urllib/request.py", line 344, in full_url
-    self._parse()
-  File "/opt/hostedtoolcache/Python/3.12.14/x64/lib/python3.12/urllib/request.py", line 373, in _parse
-    raise ValueError("unknown url type: %r" % self.full_url)
-ValueError: unknown url type: '/'
-exit_code=1
+  ✓ ntfy 푸시: 성공 (HTTP 200)
+  – 이메일(미설정): 건너뜀 (SMTP_HOST 를 설정하거나 NTFY_TOKEN 이 필요합니다)
+::warning::이메일(미설정) — SMTP_HOST 를 설정하거나 NTFY_TOKEN 이 필요합니다
+::notice::테스트 알림 발송 완료 — ntfy 푸시
+exit_code=0

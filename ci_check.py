@@ -35,6 +35,16 @@ def main():
             print(f"{name}: {'성공' if ok else '실패'} ({info})")
         return all(ok for _, ok, _ in results) if results else False
 
+    def mask_info(s):
+        import re as _re
+        return _re.sub(r"[\w.+-]+@[\w.-]+", lambda m: mask(m.group(0)), s or "")
+
+    def mask(addr):
+        if not addr or "@" not in addr:
+            return addr or ""
+        u, d = addr.split("@", 1)
+        return (u[:2] + "***@" + d) if len(u) > 2 else ("***@" + d)
+
     def summary(line):
         """실행 요약에 기록. 로그를 못 보는 상황에서도 API로 읽을 수 있다."""
         p = os.environ.get("GITHUB_STEP_SUMMARY")
@@ -52,12 +62,12 @@ def main():
         summary("| 설정 | 값 |")
         summary("|---|---|")
         summary(f"| NTFY_TOPIC | {'설정됨 `' + topic[:11] + '...`' if topic else '**비어 있음**'} |")
-        summary(f"| ALERT_EMAIL | {email or '**비어 있음**'} |")
+        summary(f"| ALERT_EMAIL | {mask(email) or '**비어 있음**'} |")
         summary(f"| SMTP_HOST | {smtp.get('host') or '미설정'} |")
         summary(f"| NTFY_TOKEN | {'설정됨' if os.environ.get('NTFY_TOKEN','').strip() else '미설정'} |")
         summary("")
         print(f"  NTFY_TOPIC  : {'설정됨 (' + topic[:11] + '...)' if topic else '★ 비어 있음'}")
-        print(f"  ALERT_EMAIL : {email or '★ 비어 있음'}")
+        print(f"  ALERT_EMAIL : {mask(email) or '★ 비어 있음'}")
         print(f"  SMTP_HOST   : {smtp.get('host') or '(미설정)'}")
         print(f"  NTFY_TOKEN  : {'설정됨' if os.environ.get('NTFY_TOKEN','').strip() else '(미설정)'}")
         results = slotcheck.alert({slotcheck.TEST_SLOT}, topic=topic, email=email,
@@ -73,7 +83,7 @@ def main():
             if ok:
                 sent.append(name)
                 print(f"  ✓ {name}: 성공 ({info})")
-                summary(f"- ✅ {name}: 성공 ({info})")
+                summary(f"- ✅ {name}: 성공 ({mask_info(info)})")
             elif "미설정" in name:
                 # 설정을 안 한 경로는 경고. 테스트를 실패로 만들지 않는다.
                 print(f"  – {name}: 건너뜀 ({info})")

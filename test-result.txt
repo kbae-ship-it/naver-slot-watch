@@ -1,0 +1,27 @@
+알림 경로 점검 — 실제 빈자리가 아닙니다. state.json 은 건드리지 않습니다.
+  NTFY_TOPIC  : 설정됨 (naver-slot-...)
+  ALERT_EMAIL : qu***@gmail.com
+  SMTP_HOST   : (미설정)
+  NTFY_TOKEN  : (미설정)
+Traceback (most recent call last):
+  File "/home/runner/work/naver-slot-watch/naver-slot-watch/ci_check.py", line 172, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/runner/work/naver-slot-watch/naver-slot-watch/ci_check.py", line 73, in main
+    results = slotcheck.alert({slotcheck.TEST_SLOT}, topic=topic, email=email,
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/naver-slot-watch/naver-slot-watch/slotcheck.py", line 275, in alert
+    ok, info = ntfy_push(topic, slots, server, label,
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/naver-slot-watch/naver-slot-watch/slotcheck.py", line 179, in ntfy_push
+    req = urllib.request.Request(
+          ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.14/x64/lib/python3.12/urllib/request.py", line 318, in __init__
+    self.full_url = url
+    ^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.14/x64/lib/python3.12/urllib/request.py", line 344, in full_url
+    self._parse()
+  File "/opt/hostedtoolcache/Python/3.12.14/x64/lib/python3.12/urllib/request.py", line 373, in _parse
+    raise ValueError("unknown url type: %r" % self.full_url)
+ValueError: unknown url type: '/'
+exit_code=1

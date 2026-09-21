@@ -10,6 +10,7 @@ BUSINESS_ID = "597072"
 BIZ_ITEM_ID = "6568346"
 BUSINESS_TYPE_ID = 13
 HORIZON_DAYS = 192
+HEARTBEAT_DAYS = 3   # 변화가 없어도 이 주기로는 커밋해 저장소를 활성 상태로 유지
 
 GRAPHQL = "https://m.booking.naver.com/graphql"
 REFERER = f"https://m.booking.naver.com/booking/{BUSINESS_TYPE_ID}/bizes/{BUSINESS_ID}/items/{BIZ_ITEM_ID}"
@@ -57,8 +58,8 @@ def slot_availability(s):
 
     가능 = isSaleDay && isBusinessDay && isUnitBusinessDay && isUnitSaleDay && !isHoliday
            && min(일단위 잔여, unitStock - unitBookingCount) >= 1
-    isUnitBusinessDay(진료시간)만 보면 안 되고 isUnitSaleDay(해당 시술 판매 시간)를
-    반드시 함께 봐야 한다. 병원은 이 시술용으로 하루 1~6개 슬롯만 연다.
+    isUnitBusinessDay(영업시간)만 보면 안 되고 isUnitSaleDay(해당 상품 판매 시간)를
+    반드시 함께 봐야 한다. 업체는 상품별로 일부 슬롯만 판매용으로 연다.
     """
     if not (s.get("isSaleDay") and s.get("isBusinessDay")
             and s.get("isUnitBusinessDay") and s.get("isUnitSaleDay")):
@@ -189,7 +190,7 @@ def ntfy_push(topic, slots, server="https://ntfy.sh", label="예약",
 
 # ── 이메일 ───────────────────────────────────────────────────────────────────
 def compose(slots, label="예약", test=False):
-    """알림 제목과 본문. 병원명·시술명은 넣지 않는다 (공개 경로를 지나므로)."""
+    """알림 제목과 본문. 업체명·상품명은 넣지 않는다 (공개 경로를 지나므로)."""
     slots = sorted(slots)
     day = slots[0].split(" ")[0]
     if test:

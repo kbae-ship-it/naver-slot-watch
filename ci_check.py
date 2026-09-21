@@ -72,6 +72,18 @@ def main():
         print("새 빈자리 없음.")
 
     changed = current != prev
+
+    # GitHub는 60일간 활동이 없으면 예약 워크플로를 자동으로 끈다.
+    # 빈자리가 오래 안 나면 커밋이 전혀 생기지 않으므로 주기적으로 한 번씩 커밋한다.
+    if not changed:
+        try:
+            last = datetime.datetime.fromisoformat(st.get("checked"))
+            age = (datetime.datetime.now(datetime.timezone.utc) - last).days
+            if age >= slotcheck.HEARTBEAT_DAYS:
+                print(f"하트비트: 마지막 커밋 {age}일 전 → 저장소 활성 유지를 위해 커밋합니다.")
+                changed = True
+        except Exception:
+            changed = True
     with open(STATE, "w", encoding="utf-8") as f:
         json.dump({"available": sorted(current),
                    "checked": datetime.datetime.now(datetime.timezone.utc).isoformat()},

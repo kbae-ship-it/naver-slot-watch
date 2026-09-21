@@ -150,6 +150,8 @@ def ntfy_push(topic, slots, server="https://ntfy.sh", label="예약",
     """
     if not topic:
         return False, "topic 없음"
+    # GitHub Actions 는 미등록 시크릿을 빈 문자열로 넘긴다. 기본값으로 되돌린다.
+    server = (server or "").strip() or "https://ntfy.sh"
     slots = sorted(slots)
     head = slots[0]
     day = head.split(" ")[0]
@@ -268,6 +270,8 @@ def alert(slots, topic="", email="", smtp_cfg=None, server="https://ntfy.sh",
     """
     results = []
     smtp_cfg = smtp_cfg or {}
+    server = (server or "").strip() or "https://ntfy.sh"
+    label = (label or "").strip() or "예약"
     use_smtp = bool(smtp_cfg.get("host") and smtp_cfg.get("to"))
     use_ntfy_mail = bool(email and ntfy_token and not use_smtp)
 

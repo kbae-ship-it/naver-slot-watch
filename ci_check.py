@@ -22,7 +22,9 @@ STATE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "state.json")
 
 def main():
     topic = os.environ.get("NTFY_TOPIC", "").strip()
-    server = os.environ.get("NTFY_SERVER", "https://ntfy.sh").strip()
+    # 빈 문자열도 미설정으로 취급해야 한다. GitHub Actions 는 미등록 시크릿을
+    # 빈 문자열로 넘기므로 os.environ.get 의 기본값이 적용되지 않는다.
+    server = os.environ.get("NTFY_SERVER", "").strip() or "https://ntfy.sh"
     label = os.environ.get("ALERT_LABEL", "예약").strip() or "예약"
     email = os.environ.get("ALERT_EMAIL", "").strip()
     smtp = slotcheck.smtp_config_from_env(os.environ)

@@ -17,7 +17,9 @@ import datetime
 
 import slotcheck
 
-STATE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "state.json")
+HERE = os.path.dirname(os.path.abspath(__file__))
+STATE = os.path.join(HERE, "state.json")
+PAUSED = os.path.join(HERE, "PAUSED")   # 이 파일이 있으면 알림을 보내지 않는다
 
 
 def main():
@@ -115,6 +117,10 @@ def main():
     except Exception:
         prev, first_run = set(), True
 
+    paused = os.path.exists(PAUSED)
+    if paused:
+        print("일시중지 상태 — 현황만 갱신하고 알림은 보내지 않습니다.")
+
     try:
         found, days, failed = slotcheck.scan_all()
     except Exception as e:
@@ -131,7 +137,10 @@ def main():
     for s in sorted(current):
         print(f"  가능: {s}")
 
-    if first_run:
+    if paused:
+        # 재개 시 그동안 열린 자리가 한꺼번에 터지지 않도록 현황만 따라간다
+        print(f"  (일시중지) 현재 예약가능 {len(current)}개 — 알림 생략")
+    elif first_run:
         print("첫 실행 — 기준선을 저장합니다.")
         if current:
             print("첫 실행 시점에 이미 빈자리가 있습니다.")
